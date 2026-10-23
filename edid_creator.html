@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDID Creator</title>
+<style>
+:root {
+  --bg: #1E1E1E;       --bg-inset: #262626;
+  --panel: #404040;    --panel-hover: #4D4D4D;  --panel-raised: #666666;
+  --border: #333333;
+  --text: #FFFFFF;     --text-muted: #A6A6A6;
+  --brand: #5C7F1E;    --brand-bright: #8DC63F; --brand-dark: #455F17;
+  --warn: #E0A030;     --error: #C0392B;        --unknown: #808080;
+  --radius: 6px;
+  color-scheme: dark;
+  font-family: Roboto, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); min-height: 100vh; }
+.mono { font-family: ui-monospace, Consolas, "Courier New", monospace; }
+
+.titlebar { text-align: center; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.titlebar h1 { margin: 0; font-size: 16px; font-weight: 500; }
+.titlebar p { margin: 2px 0 0; color: var(--text-muted); font-size: 12px; }
+
+.layout { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 20px;
+          padding: 20px; max-width: 1180px; margin: 0 auto; align-items: start; }
+.col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+@media (max-width: 820px) { .layout { grid-template-columns: minmax(0, 1fr); padding: 16px; } }
+
+fieldset.group { border: 1px solid var(--border); border-radius: 3px; margin: 0; padding: 14px 12px 12px; min-width: 0; }
+fieldset.group > legend { padding: 0 6px; margin-left: 6px; font-size: 14px; background: var(--bg); }
+
+.row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.row:last-child { margin-bottom: 0; }
+.row > .lbl { width: 84px; flex: none; color: var(--text-muted); }
+.row > .unit { color: var(--text-muted); min-width: 22px; }
+
+input[type=number], input[type=text], select {
+  background: var(--panel); color: var(--text); border: 2px solid transparent; border-radius: var(--radius);
+  padding: 6px 10px; min-height: 32px; font: inherit; width: 100%; min-width: 0;
+}
+input:focus, select:focus { outline: none; border-color: var(--brand-bright); }
+input::placeholder { color: var(--text-muted); }
+select { appearance: none; padding-right: 28px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; }
+select option { background: var(--bg-inset); }
+
+.seg { display: flex; flex: 1; min-width: 0; }
+.seg button { flex: 1; min-width: 0; background: var(--panel); color: var(--text); border: 0; border-radius: 0;
+  padding: 8px 6px; min-height: 36px; font: inherit; font-weight: 600; cursor: pointer; }
+.seg button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.seg button:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+.seg button:hover { background: var(--panel-hover); }
+.seg button.on, .seg button.on:hover { background: var(--brand); }
+.seg button:focus-visible, .btn:focus-visible, .item:focus-visible { outline: 2px solid var(--brand-bright); outline-offset: 1px; }
+.seg.wrap { flex-wrap: wrap; gap: 2px; }
+.seg.wrap button { flex: 1 1 45%; border-radius: var(--radius); }
+
+.hint { color: var(--text-muted); margin: 8px 0 0; line-height: 1.45; }
+
+.status { display: flex; align-items: center; gap: 8px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--unknown); }
+.dot.ok { background: var(--brand-bright); }
+.dot.warn { background: var(--warn); }
+.dot.err { background: var(--error); }
+
+.big { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.big .num { font-size: 34px; font-weight: 300; font-variant-numeric: tabular-nums; }
+.big .u { color: var(--text-muted); font-size: 16px; }
+.sub { color: var(--text-muted); margin: 4px 0 12px; }
+
+table { width: 100%; border-collapse: collapse; background: var(--bg-inset); border-radius: 3px; font-variant-numeric: tabular-nums; }
+th { color: var(--text-muted); font-weight: 400; text-align: right; padding: 4px 8px; border-right: 1px solid var(--border); }
+th:first-child, td:first-child { text-align: left; }
+th:last-child { border-right: 0; }
+td { text-align: right; padding: 4px 8px; line-height: 19px; }
+.kv { display: grid; grid-template-columns: 130px 1fr; gap: 4px 10px; margin-top: 12px; }
+.kv dt { color: var(--text-muted); } .kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+.list { background: var(--bg-inset); border-radius: 3px; }
+.list-h { color: var(--text-muted); padding: 6px 10px 2px; }
+.item { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; width: 100%; text-align: left;
+  background: transparent; color: var(--text); border: 0; padding: 0 10px; min-height: 28px; align-items: center; font: inherit;
+  font-variant-numeric: tabular-nums; cursor: pointer; }
+.item:hover { background: var(--panel-hover); }
+.item.sel, .item.sel:hover { background: var(--brand); font-weight: 500; }
+.item .m { color: var(--text-muted); } .item.sel .m { color: var(--text); }
+.empty { padding: 8px 10px; color: var(--text-muted); }
+
+.notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.notes li { display: flex; gap: 8px; align-items: flex-start; line-height: 1.45; }
+.notes .dot { margin-top: 4px; }
+.links .status { padding: 3px 0; }
+.links .name { width: 190px; flex: none; }
+.links .need { color: var(--text-muted); margin-left: auto; font-variant-numeric: tabular-nums; text-align: right; }
+
+.hex { background: var(--bg-inset); border-radius: 3px; padding: 8px 10px; font-size: 12px; line-height: 1.5; white-space: pre; overflow-x: auto;
+       max-height: 240px; overflow-y: auto; }
+.hex .blk { color: var(--text-muted); }
+.actions { display: flex; gap: 10px; margin-top: 12px; justify-content: flex-end; align-items: stretch; flex-wrap: wrap; }
+.btn { position: relative; background: var(--panel); color: var(--text); border: 0; border-radius: var(--radius); font: inherit;
+  font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.btn:hover:not(:disabled) { background: var(--panel-hover); }
+.btn:active:not(:disabled) { background: var(--brand-dark); outline: 2px solid var(--brand); }
+.btn:disabled { color: var(--text-muted); cursor: not-allowed; }
+.btn.big-btn { width: 160px; height: 90px; }
+.btn.small-btn { width: 125px; height: 70px; }
+.btn svg { width: 36px; height: 36px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.btn.small-btn svg { width: 26px; height: 26px; }
+</style>
+</head>
+<body>
+
+<header class="titlebar">
+  <h1>EDID Creator</h1>
+  <p>Custom resolution and refresh rate to EDID text file</p>
+</header>
+
+<main class="layout">
+  <div class="col">
+    <fieldset class="group">
+      <legend>Mode</legend>
+      <div id="customFields">
+        <div class="row"><span class="lbl">Width</span><input id="w" type="number" inputmode="numeric" min="64" max="16384" step="8"><span class="unit">px</span></div>
+        <div class="row"><span class="lbl">Height</span><input id="h" type="number" inputmode="numeric" min="64" max="16384" step="1"><span class="unit">px</span></div>
+        <div class="row"><span class="lbl">Refresh Rate</span><input id="f" type="number" inputmode="decimal" min="10" max="500" step="any"><span class="unit">Hz</span></div>
+      </div>
+      <div id="smpteFields" hidden>
+        <div class="row"><span class="lbl">Format</span><select id="sSize" aria-label="SMPTE format"></select></div>
+        <div class="row"><span class="lbl">Refresh Rate</span><select id="sRate" aria-label="SMPTE refresh rate"></select></div>
+      </div>
+      <p class="hint" id="modeHint"></p>
+      <div class="status" id="inputStatus" style="margin-top:10px" hidden><span class="dot err"></span><span id="inputStatusText"></span></div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>Timing Standard</legend>
+      <div class="row"><div class="seg" id="std" role="radiogroup" aria-label="Timing standard">
+        <button type="button" data-v="cvt">CVT</button>
+        <button type="button" data-v="cvt-rb">CVT RB</button>
+        <button type="button" data-v="cvt-rb2">CVT RB v2</button>
+        <button type="button" data-v="smpte">SMPTE</button>
+      </div></div>
+      <p class="hint" id="stdHint"></p>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>Colour Space</legend>
+      <div class="row"><div class="seg" id="colour" role="radiogroup" aria-label="Colour space">
+        <button type="button" data-v="rgb">RGB</button>
+        <button type="button" data-v="444" title="YCbCr 4:4:4">YUV 4:4:4</button>
+        <button type="button" data-v="422" title="YCbCr 4:2:2">YUV 4:2:2</button>
+        <button type="button" data-v="420" title="YCbCr 4:2:0">YUV 4:2:0</button>
+      </div></div>
+      <p class="hint">YUV here means YCbCr. RGB 4:4:4 is always declared, as the EDID standard requires; the YUV choices add to it.</p>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>Output</legend>
+      <div class="row"><span class="lbl">Interface</span><div class="seg" id="iface" role="radiogroup" aria-label="Interface">
+        <button type="button" data-v="dp">DisplayPort</button>
+        <button type="button" data-v="hdmi">HDMI</button>
+      </div></div>
+      <div class="row"><span class="lbl">Bit Depth</span><div class="seg" id="bpc" role="radiogroup" aria-label="Bit depth">
+        <button type="button" data-v="8">8 bit</button>
+        <button type="button" data-v="10">10 bit</button>
+        <button type="button" data-v="12">12 bit</button>
+      </div></div>
+      <div class="row"><span class="lbl">Monitor Name</span><input id="name" type="text" maxlength="13" placeholder="Automatic" autocomplete="off" spellcheck="false"></div>
+    </fieldset>
+  </div>
+
+  <div class="col">
+    <fieldset class="group" id="resultGroup">
+      <legend>Result</legend>
+      <div class="big"><span class="num mono" id="actual">-</span><span class="u">Hz actual</span></div>
+      <div class="status" id="exactStatus" style="margin-top:6px"><span class="dot" id="exactDot"></span><span id="exactText"></span></div>
+      <p class="sub" id="reqText"></p>
+      <table aria-label="Timing breakdown">
+        <thead><tr><th></th><th>Active</th><th>Front Porch</th><th>Sync</th><th>Back Porch</th><th>Total</th></tr></thead>
+        <tbody>
+          <tr><td>Horizontal</td><td id="tHa"></td><td id="tHfp"></td><td id="tHsw"></td><td id="tHbp"></td><td id="tHt"></td></tr>
+          <tr><td>Vertical</td><td id="tVa"></td><td id="tVfp"></td><td id="tVsw"></td><td id="tVbp"></td><td id="tVt"></td></tr>
+        </tbody>
+      </table>
+      <dl class="kv">
+        <dt>Pixel Clock</dt><dd id="kClock"></dd>
+        <dt>Line Rate</dt><dd id="kLine"></dd>
+        <dt>Sync Polarity</dt><dd id="kPol"></dd>
+      </dl>
+    </fieldset>
+
+    <fieldset class="group" id="sugGroup">
+      <legend>Exact Refresh Rate Matches</legend>
+      <p class="hint" id="sugIntro" style="margin:0 0 10px"></p>
+      <div id="sugBody"></div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>Link Check</legend>
+      <div class="links" id="links"></div>
+      <p class="hint" id="linkHint"></p>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>Notes</legend>
+      <ul class="notes" id="notes"></ul>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>EDID</legend>
+      <div class="hex mono" id="hex" tabindex="0" aria-label="EDID hex preview"></div>
+      <div class="actions">
+        <span class="status" id="exportStatus" style="margin-right:auto"></span>
+        <button type="button" class="btn small-btn" id="copyBtn">
+          <svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+          <span>Copy Hex</span>
+        </button>
+        <button type="button" class="btn big-btn" id="exportBtn">
+          <svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
+          <span>Export EDID</span>
+        </button>
+      </div>
+    </fieldset>
+  </div>
+</main>
+
+<!-- ===================================================================== -->
+<!-- Engine: timing maths and EDID byte building. No DOM access in here.    -->
+<!-- ===================================================================== -->
+<script id="engine">
+(function (root) {
+'use strict';
+
+const CELL = 8;
+const EXACT_TOL = 5e-5;   // Hz. Inside this the actual rate is shown as exact.
+
+// ---------------------------------------------------------------- CVT ----
+
+// CVT picks the vertical sync width from the aspect ratio; anything else gets 10.
+function vsyncFor(ha, va) {
+  const is = (a, b) => ha * b === va * a;
+  if (is(4, 3)) return 4;
+  if (is(16, 9)) return 5;
+  if (is(16, 10)) return 6;
+  if (is(5, 4) || is(15, 9)) return 7;
+  return 10;
+}
+
+function finish(t) {
+  t.ht = t.ha + t.hfp + t.hsw + t.hbp;
+  t.hb = t.ht - t.ha;
+  t.vb = t.vfp + t.vsw + t.vbp;
+  t.vt = t.va + t.vb;
+  t.pclk10k = Math.round(t.clockKHz / 10);          // what the EDID can store
+  t.pclkMHz = t.pclk10k / 100;
+  t.actualHz = t.pclk10k * 1e4 / (t.ht * t.vt);
+  t.hFreqKHz = t.pclk10k * 10 / t.ht;
+  return t;
+}
+
+// RB v2 works in single pixels, the other two in steps of 8.
+const cellFor = std => std === 'cvt-rb2' ? 1 : CELL;
+
+// std: 'cvt' | 'cvt-rb' | 'cvt-rb2'. Width is rounded down to a whole number of cells.
+function cvtTiming(std, wIn, va, f) {
+  const cell = cellFor(std);
+  const ha = Math.floor(wIn / cell) * cell;
+  const t = { std, ha, va, reqHz: f, enteredW: wIn, vic: 0 };
+  if (!(ha >= 8 && va >= 1 && f > 0)) return null;
+
+  if (std === 'cvt') {
+    const vsw = vsyncFor(ha, va);
+    const hPer = ((1e6 / f) - 550) / (va + 3);                    // microseconds
+    let vsbp = Math.floor(550 / hPer) + 1;
+    if (vsbp < vsw + 7) vsbp = vsw + 7;
+    const duty = Math.max(20, 30 - 300 * hPer / 1000);            // C' - M' * period
+    const hb = Math.floor(ha * duty / (100 - duty) / (2 * CELL) + 1e-9) * 2 * CELL;
+    const ht = ha + hb;
+    const hsw = Math.floor(ht * 0.08 / CELL) * CELL;
+    Object.assign(t, { hfp: hb / 2 - hsw, hsw, hbp: hb / 2, vfp: 3, vsw, vbp: vsbp - vsw,
+      hPos: false, vPos: true,
+      clockKHz: Math.floor(ht / hPer * 1000 / 250 + 1e-9) * 250 });   // 0.25 MHz steps, rounded down
+  } else {
+    const v2 = std === 'cvt-rb2';
+    const vsw = v2 ? 8 : vsyncFor(ha, va);
+    const hblank = v2 ? 80 : 160;
+    const hPer = ((1e6 / f) - 460) / va;
+    const minVbi = v2 ? 1 + vsw + 6 : 3 + vsw + 7;   // v1 needs a 7 line back porch, v2 needs 6
+    const vbi = Math.max(Math.floor(460 / hPer) + 1, minVbi);
+    const vt = va + vbi;
+    const ht = ha + hblank;
+    const kHz = f * vt * ht / 1e3;
+    t.vfp = v2 ? vbi - vsw - 6 : 3;
+    t.vbp = v2 ? 6 : vbi - vsw - 3;
+    Object.assign(t, { hfp: v2 ? 8 : 48, hsw: 32, hbp: v2 ? 40 : 80, vsw, hPos: true, vPos: false,
+      clockKHz: v2 ? Math.floor(kHz + 1e-6)                       // 1 kHz steps, rounded down
+                   : Math.floor(kHz / 250 + 1e-9) * 250 });       // 0.25 MHz steps, rounded down
+  }
+  if (t.hfp < 1 || t.hbp < 1 || t.vfp < 1 || t.vbp < 1 || t.clockKHz <= 0) return null;
+  return finish(t);
+}
+
+// -------------------------------------------------------------- SMPTE ----
+// Standard CTA-861 / SMPTE progressive formats. Timings are fixed by the standard.
+// rates: [nominal Hz, Htotal, pixel clock kHz, VIC]
+const SMPTE_SIZES = [
+  { key: '1280x720', label: '1280 × 720 (HD 720p)', ha: 1280, va: 720, vt: 750, hsw: 40, hbp: 220, vfp: 5, vsw: 5,
+    rates: [[24, 4125, 74250, 60], [25, 3960, 74250, 61], [30, 3300, 74250, 62], [50, 1980, 74250, 19], [60, 1650, 74250, 4]] },
+  { key: '1920x1080', label: '1920 × 1080 (HD 1080p)', ha: 1920, va: 1080, vt: 1125, hsw: 44, hbp: 148, vfp: 4, vsw: 5,
+    rates: [[24, 2750, 74250, 32], [25, 2640, 74250, 33], [30, 2200, 74250, 34], [50, 2640, 148500, 31], [60, 2200, 148500, 16],
+            [100, 2640, 297000, 64], [120, 2200, 297000, 63]] },
+  { key: '3840x2160', label: '3840 × 2160 (UHD)', ha: 3840, va: 2160, vt: 2250, hsw: 88, hbp: 296, vfp: 8, vsw: 10,
+    rates: [[24, 5500, 297000, 93], [25, 5280, 297000, 94], [30, 4400, 297000, 95], [50, 5280, 594000, 96], [60, 4400, 594000, 97]] },
+  { key: '4096x2160', label: '4096 × 2160 (DCI 4K)', ha: 4096, va: 2160, vt: 2250, hsw: 88, hbp: 128, vfp: 8, vsw: 10,
+    rates: [[24, 5500, 297000, 98], [25, 5280, 297000, 99], [30, 4400, 297000, 100], [50, 5280, 594000, 101], [60, 4400, 594000, 102]] },
+];
+const FRACTIONAL = { 24: '23.976', 30: '29.97', 60: '59.94', 120: '119.88' };
+const Y420_VICS = [96, 97, 101, 102];   // the only VICs HDMI 2.0 defines for 4:2:0
+
+function smpteRates(sizeKey) {
+  const s = SMPTE_SIZES.find(x => x.key === sizeKey);
+  if (!s) return [];
+  const out = [];
+  for (const [hz, ht, clk, vic] of s.rates) {
+    out.push({ id: String(hz), hz, label: String(hz), ht, clk, vic });
+    if (FRACTIONAL[hz]) out.push({ id: FRACTIONAL[hz], hz: hz / 1.001, label: FRACTIONAL[hz], ht, clk: clk / 1.001, vic });
+  }
+  return out.sort((a, b) => a.hz - b.hz);
+}
+
+function smpteTiming(sizeKey, rateId) {
+  const s = SMPTE_SIZES.find(x => x.key === sizeKey);
+  const r = smpteRates(sizeKey).find(x => x.id === rateId);
+  if (!s || !r) return null;
+  const t = { std: 'smpte', ha: s.ha, va: s.va, reqHz: r.hz, enteredW: s.ha, vic: r.vic,
+    hsw: s.hsw, hbp: s.hbp, hfp: r.ht - s.ha - s.hsw - s.hbp, vfp: s.vfp, vsw: s.vsw, vbp: s.vt - s.va - s.vfp - s.vsw,
+    hPos: true, vPos: true, clockKHz: r.clk, rateLabel: r.label, y420ok: Y420_VICS.includes(r.vic) };
+  return finish(t);
+}
+
+function calcTiming(o) {
+  return o.std === 'smpte' ? smpteTiming(o.sizeKey, o.rateId) : cvtTiming(o.std, o.w, o.h, o.f);
+}
+
+const isExact = t => Math.abs(t.actualHz - t.reqHz) < EXACT_TOL;
+
+// Search slightly larger sizes whose timing lands on the requested rate exactly.
+function findExact(std, wIn, h, f) {
+  const cell = cellFor(std), step = Math.max(cell, 2);          // even widths only: safe for 4:2:2 and 4:2:0
+  const w0 = Math.floor(wIn / cell) * cell;
+  const aspect = w0 / h;
+  const hits = [];
+  const wMax = Math.ceil(w0 * 1.15 / step) * step, hMax = Math.ceil(h * 1.15);
+  for (let w = Math.ceil(w0 / step) * step; w <= wMax; w += step) {
+    for (let hh = h; hh <= hMax; hh++) {
+      if (hh % 2) continue;                       // even heights only: safe for 4:2:2 and 4:2:0
+      const t = cvtTiming(std, w, hh, f);
+      if (!t || !isExact(t)) continue;
+      hits.push({ w, h: hh, t, extra: w * hh - w0 * h, aspectErr: Math.abs(w / hh - aspect) / aspect,
+                  loose: Math.abs(t.actualHz - f) > 1e-7 ? 1 : 0 });   // loose: only exact to 4 decimal places
+    }
+  }
+  const byArea = hits.slice().sort((a, b) => a.loose - b.loose || a.extra - b.extra || a.aspectErr - b.aspectErr);
+  const nearest = byArea.slice(0, 4);
+  const keep = byArea.filter(x => x.aspectErr < 0.004 && !nearest.includes(x)).slice(0, 3);
+  return { nearest, sameAspect: keep, total: hits.length };
+}
+
+// --------------------------------------------------------- Link check ----
+
+function tmdsMHz(t, colour, bpc) {
+  const p = t.pclkMHz;
+  if (colour === '422') return p;                 // 4:2:2 always travels in a 12 bit container
+  if (colour === '420') return p / 2 * bpc / 8;
+  return p * bpc / 8;
+}
+function gbps(t, colour, bpc) {
+  const bpp = colour === '422' ? 2 * bpc : colour === '420' ? 1.5 * bpc : 3 * bpc;
+  return t.pclkMHz * bpp / 1000;
+}
+function linkCheck(t, colour, bpc) {
+  const tm = tmdsMHz(t, colour, bpc), gb = gbps(t, colour, bpc);
+  const fmtG = x => x.toFixed(2) + ' Gbps';
+  return [
+    { name: 'HDMI 1.4', need: tm.toFixed(1) + ' of 340 MHz', ok: tm <= 340 },
+    { name: 'HDMI 2.0', need: tm.toFixed(1) + ' of 600 MHz', ok: tm <= 600 },
+    { name: 'HDMI 2.1 (48G FRL)', need: fmtG(gb) + ' of 42.67', ok: gb <= 42.67 },
+    { name: 'DisplayPort 1.2 (HBR2)', need: fmtG(gb) + ' of 17.28', ok: gb <= 17.28 },
+    { name: 'DisplayPort 1.4 (HBR3)', need: fmtG(gb) + ' of 25.92', ok: gb <= 25.92 },
+  ];
+}
+
+// --------------------------------------------------------------- EDID ----
+
+const cs = blk => { let s = 0; for (let i = 0; i < 127; i++) s += blk[i]; blk[127] = (256 - (s & 255)) & 255; };
+
+function fitsDtd(t) {
+  return t.ha <= 4095 && t.hb <= 4095 && t.va <= 4095 && t.vb <= 4095 && t.hfp <= 1023 && t.hsw <= 1023 &&
+         t.vfp <= 63 && t.vsw <= 63 && t.pclk10k > 0 && t.pclk10k <= 65535;
+}
+
+function dtd(t, wmm, hmm) {
+  const d = new Uint8Array(18);
+  d[0] = t.pclk10k & 255; d[1] = t.pclk10k >> 8;
+  d[2] = t.ha & 255; d[3] = t.hb & 255; d[4] = ((t.ha >> 8) << 4) | (t.hb >> 8);
+  d[5] = t.va & 255; d[6] = t.vb & 255; d[7] = ((t.va >> 8) << 4) | (t.vb >> 8);
+  d[8] = t.hfp & 255; d[9] = t.hsw & 255;
+  d[10] = ((t.vfp & 15) << 4) | (t.vsw & 15);
+  d[11] = ((t.hfp >> 8) << 6) | ((t.hsw >> 8) << 4) | ((t.vfp >> 4) << 2) | (t.vsw >> 4);
+  d[12] = wmm & 255; d[13] = hmm & 255; d[14] = ((wmm >> 8) << 4) | (hmm >> 8);
+  d[17] = 0x18 | (t.vPos ? 0x04 : 0) | (t.hPos ? 0x02 : 0);   // digital separate sync + polarities
+  return d;
+}
+
+const ASPECTS = [[1, 1, 0], [5, 4, 1], [4, 3, 2], [15, 9, 3], [16, 9, 4], [16, 10, 5], [64, 27, 6], [256, 135, 7]];
+function aspectCode(ha, va) {
+  const r = ha / va;
+  const best = ASPECTS.find(([a, b]) => Math.abs(r - a / b) / (a / b) < 0.01);
+  return best ? best[2] : 8;
+}
+
+function displayId(t, id) {
+  const tm = new Uint8Array(20);
+  const p = t.pclk10k - 1;
+  tm[0] = p & 255; tm[1] = (p >> 8) & 255; tm[2] = (p >> 16) & 255;
+  tm[3] = 0x80 | aspectCode(t.ha, t.va);                       // preferred + aspect
+  const w16 = (i, v) => { tm[i] = v & 255; tm[i + 1] = (v >> 8) & 255; };
+  w16(4, t.ha - 1); w16(6, t.hb - 1); w16(8, (t.hfp - 1) | (t.hPos ? 0x8000 : 0)); w16(10, t.hsw - 1);
+  w16(12, t.va - 1); w16(14, t.vb - 1); w16(16, (t.vfp - 1) | (t.vPos ? 0x8000 : 0)); w16(18, t.vsw - 1);
+  const blk = new Uint8Array(128);
+  const nm = ascii(id.name, 13);
+  const prod = [0x00, 0x00, 12 + nm.length,                    // product identification data block
+                0x41, 0x56, 0x53, id.pc & 255, id.pc >> 8, 1, 0, 0, 0, id.week, id.year, nm.length, ...nm];
+  const data = [...prod, 0x03, 0x00, 20, ...tm];               // then the type I detailed timing
+  blk[0] = 0x70; blk[1] = 0x13; blk[2] = data.length; blk[3] = id.productType; blk[4] = 0;
+  blk.set(data, 5);
+  const end = 5 + data.length;
+  let s = 0; for (let i = 1; i < end; i++) s += blk[i];
+  blk[end] = (256 - (s & 255)) & 255;                          // DisplayID checksum
+  cs(blk);
+  return blk;
+}
+
+// An ordinary mode for the base block when the real one will not fit in a detailed timing.
+function fallbackFor(t) {
+  if (t.std === 'smpte') {
+    for (const key of ['3840x2160', '1920x1080', '1280x720']) {
+      const c = smpteTiming(key, t.rateLabel);
+      if (c && fitsDtd(c)) return c;
+    }
+    return smpteTiming('1920x1080', '60');
+  }
+  for (const [w, h] of [[3840, 2160], [2560, 1440], [1920, 1080], [1280, 720]]) {
+    const c = cvtTiming(t.std, w, h, t.reqHz);
+    if (c && fitsDtd(c)) return c;
+  }
+  return cvtTiming('cvt-rb', 1920, 1080, 60);
+}
+
+const trimHz = x => String(Number(x.toFixed(3)));
+
+function ascii(s, n) { return Array.from(s).slice(0, n).map(c => c.charCodeAt(0)); }
+
+function buildEdid(o) {
+  const t = o.timing, colour = o.colour, bpc = o.bpc, hdmi = o.iface === 'hdmi';
+  const notes = [];
+  const note = (level, text) => notes.push({ level, text });
+  const wmm = Math.min(4095, Math.round(t.ha * 0.23)), hmm = Math.min(4095, Math.round(t.va * 0.23));
+
+  // --- which mode goes where
+  const noDtd = !fitsDtd(t);                                   // too big for an 18 byte detailed timing
+  const wide = noDtd && t.std !== 'smpte';                     // SMPTE formats are signalled by VIC instead
+  let first = t, fb = null;
+  if (noDtd) {
+    fb = fallbackFor(t);
+    first = fb;
+    const fbText = `${fb.ha} × ${fb.va} @ ${trimHz(fb.reqHz)} Hz`;
+    note('info', wide
+      ? `${t.ha} × ${t.va} does not fit in an EDID detailed timing (limits: 4095 pixels, 1023 pixel porches, 655.35 MHz). ` +
+        `The real mode is stored in a DisplayID extension and marked preferred. The base block carries ${fbText} as a fallback, ` +
+        `so a loader that ignores DisplayID will show that instead.`
+      : `This format's timing does not fit in an EDID detailed timing, so it is signalled by its CTA-861 VIC (${t.vic}). ` +
+        `The base block detailed timing carries ${fbText} as a fallback.`);
+  }
+
+  // --- CTA-861 video data blocks (SMPTE formats are signalled by VIC)
+  const vdb = [], y420 = [];
+  const addVic = tt => {
+    if (!tt || !tt.vic || vdb.includes(tt.vic) || y420.includes(tt.vic)) return;
+    if (colour === '420' && tt.y420ok) y420.push(tt.vic); else vdb.push(tt.vic);
+  };
+  addVic(t); if (noDtd) addVic(fb);
+  if (colour === '420' && !t.y420ok) {
+    note('warn', t.std === 'smpte'
+      ? 'YUV 4:2:0 is only defined for 3840 × 2160 and 4096 × 2160 at 50 and 60 Hz. This format is advertised without it.'
+      : 'YUV 4:2:0 can only be advertised for standard CTA-861 formats, not custom timings. The EDID declares RGB and YUV 4:4:4 for this mode; the GPU decides the actual output format.');
+  }
+  if (colour === '420' && t.y420ok) {
+    note('info', 'This format is listed in the YCbCr 4:2:0 Video Data Block, which tells the source it is a 4:2:0 only mode.');
+  }
+
+  // --- link / HDMI needs
+  const tmds = tmdsMHz(t, colour, bpc);
+  const needHf = hdmi && (tmds > 340 || colour === '420');
+  if (hdmi && tmds > 600) note('warn', `This needs about ${tmds.toFixed(0)} MHz of TMDS clock, beyond HDMI 2.0 (600 MHz). Only an HDMI 2.1 FRL link can carry it, and this EDID does not describe FRL.`);
+  if (hdmi && colour !== 'rgb' && t.vic === 0 && colour !== '420') note('info', 'YUV over HDMI needs the sink to look like an HDMI display, so an HDMI Vendor Specific Data Block is included.');
+  if (!hdmi && colour === '420') note('info', 'DisplayPort sources signal 4:2:0 through their own packets, so the 4:2:0 block only helps drivers that read it from the EDID.');
+
+  const needCta = hdmi || colour !== 'rgb' || vdb.length > 0 || y420.length > 0;
+
+  // --- base block
+  const base = new Uint8Array(128);
+  base.set([0, 255, 255, 255, 255, 255, 255, 0], 0);
+  const mfg = (1 << 10) | (22 << 5) | 19;                      // "AVS"
+  base[8] = mfg >> 8; base[9] = mfg & 255;
+  const pc = parseInt(String(t.ha).slice(0, 4), 16) & 0xFFFF;  // 5120 -> 0x5120
+  base[10] = pc & 255; base[11] = pc >> 8;
+  base[12] = 1;
+  const now = o.now || new Date();
+  const doy = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 864e5);
+  base[16] = Math.min(54, Math.floor(doy / 7) + 1); base[17] = now.getFullYear() - 1990;
+  // HDMI sinks are EDID 1.3 unless a DisplayID extension forces 1.4; depth then lives in the HDMI block.
+  const v13 = hdmi && !wide;
+  base[18] = 1; base[19] = v13 ? 3 : 4;
+  base[20] = v13 ? 0x80 : 0x80 | ({ 8: 2, 10: 3, 12: 4 }[bpc] << 4) | (hdmi ? 2 : 5);
+  base[21] = Math.min(255, Math.max(1, Math.round(wmm / 10)));
+  base[22] = Math.min(255, Math.max(1, Math.round(hmm / 10)));
+  base[23] = 120;                                              // gamma 2.2
+  const ycc = { rgb: 0, '444': 1, '420': 1, '422': 3 }[colour];
+  base[24] = 0x06 | ((v13 ? 1 : ycc) << 3);                    // sRGB default, DTD 1 preferred, colour type/capability
+  base.set([0xEE, 0x91, 0xA3, 0x54, 0x4C, 0x99, 0x26, 0x0F, 0x50, 0x54], 25);
+  if (needCta) base[35] = 0x20;                                // CTA-861 asks for 640 × 480 @ 60 Hz as a safe fallback
+  for (let i = 0; i < 8; i++) { base[38 + 2 * i] = 1; base[39 + 2 * i] = 1; }
+  base.set(dtd(first, wmm, hmm), 54);
+
+  const hfs = [t.hFreqKHz, first.hFreqKHz], fs = [t.reqHz, first.reqHz];
+  if (needCta) { fs.push(60); hfs.push(31.5); }                // the 640 × 480 @ 60 fallback has to sit inside the ranges
+  const rl = new Uint8Array(18);
+  rl[3] = 0xFD;
+  rl[5] = Math.max(1, Math.min(24, Math.floor(Math.min(...fs))));
+  rl[6] = Math.min(255, Math.ceil(Math.max(...fs)) + 10);
+  rl[7] = Math.max(1, Math.min(30, Math.floor(Math.min(...hfs))));
+  rl[8] = Math.min(255, Math.ceil(Math.max(...hfs)) + 10);
+  rl[9] = Math.min(255, Math.ceil(Math.max(t.pclkMHz, first.pclkMHz) / 10) + 1);
+  rl[10] = v13 ? 0 : 1; rl[11] = 0x0A; rl.fill(0x20, 12);       // 1.4: bare limits, 1.3: default GTF padding
+  base.set(rl, 72);
+
+  const nm = new Uint8Array(18);
+  nm[3] = 0xFC;
+  const label = (o.name && o.name.trim()) || `AVS ${t.ha}x${t.va}`;
+  const nb = ascii(label.replace(/[^\x20-\x7E]/g, ''), 13);
+  nm.fill(0x20, 5);
+  nm.set(nb, 5);
+  if (nb.length < 13) nm[5 + nb.length] = 0x0A;
+  base.set(nm, 90);
+
+  base[108 + 3] = 0x10;                                        // dummy descriptor
+  const blocks = [{ name: 'Base block', bytes: base }];
+
+  // --- CTA-861 extension
+  if (needCta) {
+    const cta = new Uint8Array(128);
+    const db = [0xE2, 0x00, 0xCB];                             // video capability: selectable RGB/YCC range, IT underscanned
+    if (vdb.length) db.push(0x40 | vdb.length, ...vdb);
+    if (y420.length) db.push(0xE0 | (y420.length + 1), 0x0E, ...y420);
+    if (hdmi) {
+      let dc = 0;
+      if (bpc >= 10) dc |= 0x10;
+      if (bpc >= 12) dc |= 0x20;
+      if (bpc >= 10 && colour === '444') dc |= 0x08;
+      db.push(0x67, 0x03, 0x0C, 0x00, 0x10, 0x00, dc, 68);    // HDMI VSDB, 340 MHz
+    }
+    if (needHf) {
+      let dc420 = 0;
+      if (colour === '420' && bpc >= 10) dc420 |= 0x01;
+      if (colour === '420' && bpc >= 12) dc420 |= 0x02;
+      db.push(0x67, 0xD8, 0x5D, 0xC4, 0x01, 120, 0x88, dc420); // HDMI Forum VSDB, 600 MHz, SCDC + scrambling
+    }
+    cta[0] = 0x02; cta[1] = 0x03; cta[2] = 4 + db.length;
+    cta[3] = 0x80 | (ycc ? 0x20 : 0) | (colour === '422' ? 0x10 : 0) | (noDtd ? 0 : 1);   // low nibble: native DTD count
+    cta.set(db, 4);
+    cs(cta);
+    blocks.push({ name: 'CTA-861 extension', bytes: cta });
+  }
+  if (wide) blocks.push({ name: 'DisplayID extension', bytes: displayId(t, { name: label, pc, week: base[16], year: now.getFullYear() - 2000, productType: 5 }) });
+
+  base[126] = blocks.length - 1;
+  cs(base);
+
+  const all = new Uint8Array(128 * blocks.length);
+  blocks.forEach((b, i) => all.set(b.bytes, i * 128));
+  return { bytes: all, blocks, notes, fallback: fb, wide };
+}
+
+function toText(bytes) {
+  const lines = [];
+  for (let i = 0; i < bytes.length; i += 16) {
+    lines.push(Array.from(bytes.slice(i, i + 16), b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ') + ' ');
+  }
+  return lines.join('\n') + '\n';
+}
+
+root.EdidEngine = { calcTiming, cvtTiming, smpteTiming, smpteRates, SMPTE_SIZES, findExact, linkCheck, tmdsMHz,
+                    buildEdid, toText, isExact, fitsDtd, EXACT_TOL, cellFor };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+
+<!-- ===================================================================== -->
+<!-- Interface                                                              -->
+<!-- ===================================================================== -->
+<script id="ui">
+(function () {
+'use strict';
+const E = window.EdidEngine;
+const $ = id => document.getElementById(id);
+
+const state = { std: 'cvt-rb', colour: 'rgb', iface: 'dp', bpc: 8, w: 5120, h: 2160, f: 50, sizeKey: '3840x2160', rateId: '60' };
+let current = null;   // { timing, edid, name }
+
+const STD_HINTS = {
+  'cvt': 'Standard CVT. Long blanking, suits displays that need it. Pixel clock steps in 0.25 MHz.',
+  'cvt-rb': 'CVT reduced blanking. Short fixed horizontal blanking, so a lower pixel clock. Pixel clock steps in 0.25 MHz.',
+  'cvt-rb2': 'CVT reduced blanking version 2. Tighter timing, pixel clock steps in 1 kHz, so it usually lands closest to the rate you ask for.',
+  'smpte': 'Standard broadcast and cinema formats only. Sizes, rates and timings are fixed by the standard.',
+};
+
+// ---- helpers
+const fmtHz = x => x.toFixed(4);
+const fmtSigned = x => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(4);
+const trimNum = x => String(Number(x.toFixed(3)));
+function setSeg(id, value) {
+  document.querySelectorAll(`#${id} button`).forEach(b => {
+    const on = b.dataset.v === String(value);
+    b.classList.toggle('on', on);
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
+function dot(level) { return `<span class="dot ${level}"></span>`; }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function readInputs() {
+  const w = parseFloat($('w').value), h = parseFloat($('h').value), f = parseFloat($('f').value);
+  if (state.std === 'smpte') return { ok: true };
+  if (!(w >= 64 && w <= 16384 && Number.isInteger(w))) return { ok: false, msg: 'Enter a whole width between 64 and 16384 pixels.' };
+  if (!(h >= 64 && h <= 16384 && Number.isInteger(h))) return { ok: false, msg: 'Enter a whole height between 64 and 16384 pixels.' };
+  if (!(f >= 10 && f <= 500)) return { ok: false, msg: 'Enter a refresh rate between 10 and 500 Hz.' };
+  state.w = w; state.h = h; state.f = f;
+  return { ok: true };
+}
+
+function fillSmpte() {
+  const sizeSel = $('sSize');
+  if (!sizeSel.options.length) {
+    for (const s of E.SMPTE_SIZES) sizeSel.add(new Option(s.label, s.key));
+  }
+  sizeSel.value = state.sizeKey;
+  const rates = E.smpteRates(state.sizeKey);
+  if (!rates.some(r => r.id === state.rateId)) {
+    state.rateId = rates.reduce((a, b) => Math.abs(b.hz - state.f) < Math.abs(a.hz - state.f) ? b : a).id;
+  }
+  const rs = $('sRate');
+  rs.innerHTML = '';
+  for (const r of rates) rs.add(new Option(r.label + ' Hz', r.id));
+  rs.value = state.rateId;
+}
+
+// ---- rendering
+function render() {
+  setSeg('std', state.std); setSeg('colour', state.colour); setSeg('iface', state.iface); setSeg('bpc', state.bpc);
+  const smpte = state.std === 'smpte';
+  $('customFields').hidden = smpte; $('smpteFields').hidden = !smpte;
+  $('stdHint').textContent = STD_HINTS[state.std];
+  if (smpte) fillSmpte();
+
+  const inp = readInputs();
+  const showErr = msg => { $('inputStatus').hidden = !msg; $('inputStatusText').textContent = msg || ''; };
+  if (!inp.ok) { showErr(inp.msg); return invalid(); }
+
+  const t = E.calcTiming({ std: state.std, w: state.w, h: state.h, f: state.f, sizeKey: state.sizeKey, rateId: state.rateId });
+  if (!t) { showErr('These values do not make a valid timing. Try a lower refresh rate or a larger size.'); return invalid(); }
+  showErr('');
+
+  $('modeHint').textContent = (!smpte && t.ha !== state.w)
+    ? `This standard works in ${E.cellFor(state.std)} pixel steps, so ${state.w} wide becomes ${t.ha}.` : '';
+
+  renderResult(t);
+  renderSuggestions(t);
+  const colourOk = state.colour;
+  const edid = E.buildEdid({ timing: t, colour: colourOk, bpc: state.bpc, iface: state.iface, name: $('name').value, std: state.std });
+  current = { timing: t, edid };
+  renderLinks(t); renderNotes(t, edid); renderHex(edid);
+  $('exportBtn').disabled = false; $('copyBtn').disabled = false;
+  $('exportStatus').innerHTML = `${dot('ok')}<span>${edid.blocks.length} block${edid.blocks.length > 1 ? 's' : ''}, ${edid.bytes.length} bytes</span>`;
+}
+
+function invalid() {
+  current = null;
+  $('actual').textContent = '-';
+  $('exactDot').className = 'dot'; $('exactText').textContent = 'No result';
+  $('reqText').textContent = '';
+  ['tHa','tHfp','tHsw','tHbp','tHt','tVa','tVfp','tVsw','tVbp','tVt','kClock','kLine','kPol'].forEach(id => $(id).textContent = '');
+  $('sugBody').innerHTML = ''; $('sugIntro').textContent = '';
+  $('links').innerHTML = ''; $('notes').innerHTML = ''; $('hex').textContent = '';
+  $('exportBtn').disabled = true; $('copyBtn').disabled = true;
+  $('exportStatus').innerHTML = `${dot('err')}<span>Nothing to export</span>`;
+}
+
+function renderResult(t) {
+  $('actual').textContent = fmtHz(t.actualHz);
+  const d = t.actualHz - t.reqHz;
+  if (t.std === 'smpte' && Math.abs(d) < 0.005) { $('exactDot').className = 'dot ok'; $('exactText').textContent = 'Standard rate'; }
+  else if (E.isExact(t)) { $('exactDot').className = 'dot ok'; $('exactText').textContent = 'Exact'; }
+  else { $('exactDot').className = 'dot warn'; $('exactText').textContent = `Off by ${fmtSigned(d)} Hz`; }
+  const stdName = { cvt: 'CVT', 'cvt-rb': 'CVT RB', 'cvt-rb2': 'CVT RB v2', smpte: 'SMPTE' }[t.std];
+  $('reqText').textContent = t.std === 'smpte'
+    ? `Standard rate ${t.rateLabel} Hz, ${t.ha} × ${t.va}, CTA-861 VIC ${t.vic}. The EDID stores the pixel clock in 10 kHz steps.`
+    : `Requested ${trimNum(t.reqHz)} Hz, ${t.ha} × ${t.va}, ${stdName}.`;
+  const set = (id, v) => $(id).textContent = v;
+  set('tHa', t.ha); set('tHfp', t.hfp); set('tHsw', t.hsw); set('tHbp', t.hbp); set('tHt', t.ht);
+  set('tVa', t.va); set('tVfp', t.vfp); set('tVsw', t.vsw); set('tVbp', t.vbp); set('tVt', t.vt);
+  set('kClock', `${t.pclkMHz.toFixed(2)} MHz` + (Math.abs(t.clockKHz - t.pclk10k * 10) > 0.5 ? ` (standard gives ${(t.clockKHz / 1000).toFixed(3)} MHz)` : ''));
+  set('kLine', `${t.hFreqKHz.toFixed(3)} kHz`);
+  set('kPol', `Horizontal ${t.hPos ? 'positive' : 'negative'}, vertical ${t.vPos ? 'positive' : 'negative'}`);
+}
+
+function renderSuggestions(t) {
+  const body = $('sugBody'), intro = $('sugIntro');
+  if (state.std === 'smpte') {
+    intro.textContent = '';
+    body.innerHTML = '<div class="list"><div class="empty">SMPTE formats are fixed by the standard, so there is nothing to adjust.</div></div>';
+    return;
+  }
+  if (E.isExact(t)) {
+    intro.textContent = `${t.ha} × ${t.va} already gives exactly ${trimNum(t.reqHz)} Hz with this standard. Larger sizes that also do are listed for reference.`;
+  } else {
+    intro.textContent = `${t.ha} × ${t.va} gives ${fmtHz(t.actualHz)} Hz. These slightly larger sizes land on ${trimNum(t.reqHz)} Hz exactly. Choose one to use it.`;
+  }
+  const r = E.findExact(state.std, state.w, state.h, state.f);
+  if (!r.total) {
+    body.innerHTML = '<div class="list"><div class="empty">No exact match within 15% larger. Try a different standard or refresh rate.</div></div>';
+    return;
+  }
+  const rows = list => list.map(x => {
+    const sel = x.w === t.ha && x.h === t.va;
+    return `<button type="button" class="item${sel ? ' sel' : ''}" data-w="${x.w}" data-h="${x.h}">` +
+      `<span>${x.w} × ${x.h}</span><span class="m">+${x.w - t.ha} × +${x.h - t.va}</span><span>${fmtHz(x.t.actualHz)} Hz</span></button>`;
+  }).join('');
+  let html = '<div class="list">';
+  if (r.nearest.length) html += `<div class="list-h">Closest in size</div>${rows(r.nearest)}`;
+  if (r.sameAspect.length) html += `<div class="list-h">Same shape as ${state.w} × ${state.h}</div>${rows(r.sameAspect)}`;
+  body.innerHTML = html + '</div>';
+}
+
+function renderLinks(t) {
+  const rows = E.linkCheck(t, state.colour, state.bpc);
+  $('links').innerHTML = rows.map(r =>
+    `<div class="status">${dot(r.ok ? 'ok' : 'err')}<span class="name">${esc(r.name)}</span><span>${r.ok ? 'Fits' : 'Too fast'}</span><span class="need">${esc(r.need)}</span></div>`).join('');
+  const fmt = { rgb: 'RGB', '444': 'YUV 4:4:4', '422': 'YUV 4:2:2', '420': 'YUV 4:2:0' }[state.colour];
+  $('linkHint').textContent = `Worked out for ${fmt} at ${state.bpc} bit. Cable and port limits can be lower. Display Stream Compression is not counted.`;
+}
+
+function renderNotes(t, edid) {
+  const items = edid.notes.slice();
+  if (!E.isExact(t) && t.std !== 'smpte') items.unshift({ level: 'warn', text: `The source will run at ${fmtHz(t.actualHz)} Hz, not ${trimNum(t.reqHz)} Hz. Pick a match from the list to land on it exactly.` });
+  if (t.std === 'smpte' && Math.abs(t.actualHz - t.reqHz) > 1e-6) items.unshift({ level: 'info', text: `The EDID clock only has 10 kHz steps, so the detailed timing is ${fmtHz(t.actualHz)} Hz against the exact standard rate. The VIC in the CTA block still signals the exact format.` });
+  items.push({ level: 'info', text: 'Not yet checked on hardware. Run the exported bytes through edid-decode and confirm on the real device that the source reports the mode.' });
+  $('notes').innerHTML = items.map(n => `<li>${dot(n.level === 'warn' ? 'warn' : n.level === 'ok' ? 'ok' : 'unknown')}<span>${esc(n.text)}</span></li>`).join('');
+}
+
+function renderHex(edid) {
+  const lines = [];
+  edid.blocks.forEach((b, i) => {
+    lines.push(`<span class="blk">Block ${i}: ${esc(b.name)}</span>`);
+    lines.push(esc(E.toText(b.bytes).trimEnd()));
+  });
+  $('hex').innerHTML = lines.join('\n');
+}
+
+// ---- export
+function fileName() {
+  const t = current.timing;
+  const std = { cvt: 'CVT', 'cvt-rb': 'CVT-RB', 'cvt-rb2': 'CVT-RBv2', smpte: 'SMPTE' }[t.std];
+  const hz = t.std === 'smpte' ? t.rateLabel : trimNum(t.reqHz);
+  return `EDID_${t.ha}x${t.va}_${hz}Hz_${std}.txt`;
+}
+function exportEdid() {
+  if (!current) return;
+  const blob = new Blob([E.toText(current.edid.bytes)], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = fileName();
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  $('exportStatus').innerHTML = `${dot('ok')}<span>Saved ${esc(a.download)}</span>`;
+}
+async function copyHex() {
+  if (!current) return;
+  try { await navigator.clipboard.writeText(E.toText(current.edid.bytes)); $('exportStatus').innerHTML = `${dot('ok')}<span>Copied to clipboard</span>`; }
+  catch (e) {
+    const r = document.createRange(); r.selectNodeContents($('hex')); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    $('exportStatus').innerHTML = `${dot('warn')}<span>Clipboard blocked, hex is selected so press Ctrl+C</span>`;
+  }
+}
+
+// ---- wiring (input, not change, so typing updates live)
+['w', 'h', 'f', 'name'].forEach(id => $(id).addEventListener('input', render));
+function bindSeg(id, key, cast) {
+  $(id).addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const v = cast ? cast(b.dataset.v) : b.dataset.v;
+    if (key === 'std' && v === 'smpte' && state.std !== 'smpte') { /* keep nearest rate when switching */ }
+    state[key] = v; render();
+  });
+}
+bindSeg('std', 'std'); bindSeg('colour', 'colour'); bindSeg('iface', 'iface'); bindSeg('bpc', 'bpc', Number);
+$('sSize').addEventListener('change', e => { state.sizeKey = e.target.value; render(); });
+$('sRate').addEventListener('change', e => { state.rateId = e.target.value; render(); });
+$('sugBody').addEventListener('click', e => {
+  const b = e.target.closest('.item'); if (!b) return;
+  $('w').value = b.dataset.w; $('h').value = b.dataset.h; render();
+});
+$('exportBtn').addEventListener('click', exportEdid);
+$('copyBtn').addEventListener('click', copyHex);
+
+$('w').value = state.w; $('h').value = state.h; $('f').value = state.f;
+render();
+})();
+</script>
+</body>
+</html>

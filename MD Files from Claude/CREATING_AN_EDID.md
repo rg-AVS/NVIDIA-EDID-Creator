@@ -111,7 +111,7 @@ The base-block DTD stores active width in 12 bits, so **the maximum is 4095 pixe
 | 14 | Width mm high 4 bits (upper), height mm high 4 bits (lower) |
 | 15 | H border |
 | 16 | V border |
-| 17 | Flags: `1A` = digital separate sync, +H, +V, non-interlaced |
+| 17 | Flags: `18` + `04` if V sync positive + `02` if H sync positive. `1A` = +H, -V (CVT-RB), `1E` = +H, +V, `18` = -H, -V |
 
 ---
 
@@ -207,7 +207,7 @@ def dtd(t):
     d[10] = ((vfp & 15) << 4) | (vsw & 15)
     d[11] = ((hfp >> 8) << 6) | ((hsw >> 8) << 4) | ((vfp >> 4) << 2) | (vsw >> 4)
     d[12] = WMM & 255; d[13] = HMM & 255; d[14] = ((WMM >> 8) << 4) | (HMM >> 8)
-    d[17] = 0x1A  # digital separate sync, +H +V
+    d[17] = 0x1A  # digital separate sync, +H -V (use 0x1E for +H +V)
     return d
 
 # ---- Base block ----
