@@ -621,7 +621,7 @@ root.EdidEngine = { calcTiming, cvtTiming, smpteTiming, smpteRates, SMPTE_SIZES,
 const E = window.EdidEngine;
 const $ = id => document.getElementById(id);
 
-const state = { std: 'cvt-rb', colour: 'rgb', iface: 'dp', bpc: 8, w: 5120, h: 2160, f: 50, sizeKey: '3840x2160', rateId: '60' };
+const state = { std: 'cvt-rb', colour: 'rgb', iface: 'dp', bpc: 8, w: 3840, h: 2160, f: 50, sizeKey: '3840x2160', rateId: '60' };
 let current = null;   // { timing, edid, name }
 
 const STD_HINTS = {
