@@ -437,7 +437,7 @@ function displayId(t, id) {
   const blk = new Uint8Array(128);
   const nm = ascii(id.name, 13);
   const prod = [0x00, 0x00, 12 + nm.length,                    // product identification data block
-                0x41, 0x56, 0x53, id.pc & 255, id.pc >> 8, 1, 0, 0, 0, id.week, id.year, nm.length, ...nm];
+                0x47, 0x48, 0x50, id.pc & 255, id.pc >> 8, 1, 0, 0, 0, id.week, id.year, nm.length, ...nm];
   const data = [...prod, 0x03, 0x00, 20, ...tm];               // then the type I detailed timing
   blk[0] = 0x70; blk[1] = 0x13; blk[2] = data.length; blk[3] = id.productType; blk[4] = 0;
   blk.set(data, 5);
@@ -518,7 +518,7 @@ function buildEdid(o) {
   // --- base block
   const base = new Uint8Array(128);
   base.set([0, 255, 255, 255, 255, 255, 255, 0], 0);
-  const mfg = (1 << 10) | (22 << 5) | 19;                      // "AVS"
+  const mfg = (7 << 10) | (8 << 5) | 16;                       // "GHP"
   base[8] = mfg >> 8; base[9] = mfg & 255;
   const pc = parseInt(String(t.ha).slice(0, 4), 16) & 0xFFFF;  // 5120 -> 0x5120
   base[10] = pc & 255; base[11] = pc >> 8;
@@ -554,7 +554,7 @@ function buildEdid(o) {
 
   const nm = new Uint8Array(18);
   nm[3] = 0xFC;
-  const label = (o.name && o.name.trim()) || `AVS ${t.ha}x${t.va}`;
+  const label = (o.name && o.name.trim()) || `GH ${t.ha}x${t.va}`;
   const nb = ascii(label.replace(/[^\x20-\x7E]/g, ''), 13);
   nm.fill(0x20, 5);
   nm.set(nb, 5);
@@ -621,7 +621,7 @@ root.EdidEngine = { calcTiming, cvtTiming, smpteTiming, smpteRates, SMPTE_SIZES,
 const E = window.EdidEngine;
 const $ = id => document.getElementById(id);
 
-const state = { std: 'cvt-rb', colour: 'rgb', iface: 'dp', bpc: 8, w: 5120, h: 2160, f: 50, sizeKey: '3840x2160', rateId: '60' };
+const state = { std: 'cvt-rb', colour: 'rgb', iface: 'dp', bpc: 8, w: 3840, h: 2160, f: 50, sizeKey: '3840x2160', rateId: '60' };
 let current = null;   // { timing, edid, name }
 
 const STD_HINTS = {
